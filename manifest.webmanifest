@@ -1,6 +1,6 @@
 {
-  "name": "Focus",
-  "short_name": "Focus",
+  "name": "Markets",
+  "short_name": "Markets",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

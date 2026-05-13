@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0b0d12" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Focus" />
-<title>Focus</title>
+<meta name="apple-mobile-web-app-title" content="Markets" />
+<title>Markets · IndiaVIX · Nifty50 · USDINR</title>
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon.svg" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
@@ -16,12 +16,9 @@
     --bg: #0b0d12;
     --fg: #f5f7fb;
     --muted: #8b93a7;
-    --accent: #7c5cff;
-    --accent-2: #22d3ee;
-    --break: #34d399;
-    --danger: #f87171;
     --card: #141826;
-    --ring-bg: #1f2536;
+    --card-2: #1b2030;
+    --accent: #7c5cff;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bot: env(safe-area-inset-bottom, 0px);
   }
@@ -32,311 +29,151 @@
     background: radial-gradient(120% 80% at 50% 0%, #1a1f33 0%, var(--bg) 60%) fixed;
     color: var(--fg);
     overscroll-behavior: none;
-    user-select: none;
-    -webkit-user-select: none;
-    padding: calc(var(--safe-top) + 16px) 20px calc(var(--safe-bot) + 16px);
+    padding: calc(var(--safe-top) + 10px) 10px calc(var(--safe-bot) + 10px);
     min-height: 100%;
     display: flex;
     flex-direction: column;
+    gap: 10px;
   }
   header {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 12px;
+    padding: 0 6px;
+    gap: 8px;
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: 0.3px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
-         box-shadow: 0 0 16px var(--accent); }
-  .mode-pill {
-    font-size: 12px; padding: 6px 10px; border-radius: 999px;
-    background: var(--card); color: var(--muted);
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: 0.2px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px var(--accent); }
+  .controls { display: flex; gap: 6px; align-items: center; }
+  .ranges { display: flex; gap: 4px; background: var(--card); padding: 4px; border-radius: 10px; }
+  .ranges button {
+    background: transparent; color: var(--muted); border: 0;
+    padding: 6px 10px; border-radius: 7px; font-size: 12px; font-weight: 600;
+    cursor: pointer;
   }
+  .ranges button.active { background: var(--card-2); color: var(--fg); }
+  .icon-btn {
+    background: var(--card); color: var(--fg); border: 0;
+    border-radius: 10px; padding: 8px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 36px; min-height: 36px;
+  }
+  .icon-btn:active { transform: scale(0.94); }
 
-  main {
-    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 28px;
+  .charts {
+    flex: 1;
+    display: grid;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 10px;
+    min-height: 0;
   }
-
-  .ring-wrap { position: relative; width: min(78vw, 360px); aspect-ratio: 1/1; }
-  svg.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
-  .ring-bg-circle { stroke: var(--ring-bg); }
-  .ring-fg-circle {
-    stroke: var(--accent);
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.4s linear, stroke 0.3s ease;
-    filter: drop-shadow(0 0 12px rgba(124,92,255,0.35));
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 0;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.04);
   }
-  .center {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 6px;
+  .card-label {
+    position: absolute; top: 8px; left: 12px; z-index: 2;
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1.6px; font-weight: 700;
+    pointer-events: none;
+    background: rgba(11,13,18,0.55);
+    padding: 3px 8px; border-radius: 6px;
+    backdrop-filter: blur(6px);
   }
-  .time {
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
-    font-size: clamp(48px, 14vw, 76px);
-    letter-spacing: -0.02em;
+  .tradingview-widget-container,
+  .tradingview-widget-container__widget {
+    width: 100% !important;
+    height: 100% !important;
   }
-  .label { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 2px; }
-
-  .controls { display: flex; gap: 14px; align-items: center; }
-  button {
-    font: inherit; color: inherit; border: 0; cursor: pointer;
-    background: var(--card); border-radius: 14px; padding: 14px 18px;
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    transition: transform 0.05s ease, background 0.2s ease;
-    min-width: 56px; min-height: 56px;
-  }
-  button:active { transform: scale(0.96); }
-  button.primary {
-    background: linear-gradient(135deg, var(--accent), #5a3df0);
-    color: white; font-weight: 600; padding: 16px 28px;
-    box-shadow: 0 8px 24px rgba(124,92,255,0.35);
-  }
-  button.ghost { background: transparent; color: var(--muted); }
-  button.icon { width: 56px; padding: 0; }
-
-  .presets {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-    width: min(78vw, 360px);
-  }
-  .preset {
-    background: var(--card); border-radius: 12px; padding: 12px 8px;
-    text-align: center;
-  }
-  .preset.active { outline: 2px solid var(--accent); }
-  .preset .min { font-weight: 700; font-size: 18px; }
-  .preset .kind { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px; }
+  .tradingview-widget-container { display: block; }
+  .tradingview-widget-copyright { display: none !important; }
 
   footer {
-    margin-top: 8px; display: flex; justify-content: space-between;
-    color: var(--muted); font-size: 12px;
+    text-align: center; color: var(--muted); font-size: 11px; opacity: 0.7;
   }
-  .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .stat b { color: var(--fg); font-size: 16px; }
-
-  body.break .ring-fg-circle { stroke: var(--break); filter: drop-shadow(0 0 12px rgba(52,211,153,0.4)); }
-  body.break .dot { background: var(--break); box-shadow: 0 0 16px var(--break); }
-  body.break button.primary {
-    background: linear-gradient(135deg, var(--break), #0ea5e9);
-    box-shadow: 0 8px 24px rgba(52,211,153,0.35);
-  }
-
-  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-  .pulsing { animation: pulse 2s ease-in-out infinite; }
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><span class="dot"></span> Focus</div>
-  <div class="mode-pill" id="modePill">Focus</div>
+  <div class="brand"><span class="dot"></span> Markets</div>
+  <div class="controls">
+    <div class="ranges" id="ranges">
+      <button data-range="1D">1D</button>
+      <button data-range="5D">5D</button>
+      <button data-range="1M" class="active">1M</button>
+      <button data-range="6M">6M</button>
+      <button data-range="12M">1Y</button>
+    </div>
+    <button class="icon-btn" id="refreshBtn" aria-label="Refresh">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+    </button>
+  </div>
 </header>
 
-<main>
-  <div class="ring-wrap" id="ringWrap">
-    <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
-      <circle class="ring-bg-circle" cx="50" cy="50" r="46" fill="none" stroke-width="6" />
-      <circle class="ring-fg-circle" id="ringFg" cx="50" cy="50" r="46" fill="none" stroke-width="6"
-              stroke-dasharray="289.027" stroke-dashoffset="0" />
-    </svg>
-    <div class="center">
-      <div class="time" id="timeDisplay">25:00</div>
-      <div class="label" id="phaseLabel">Tap start</div>
-    </div>
-  </div>
+<div class="charts" id="charts">
+  <div class="card" data-symbol="NSE:INDIAVIX" data-label="India VIX"></div>
+  <div class="card" data-symbol="NSE:NIFTY" data-label="Nifty 50"></div>
+  <div class="card" data-symbol="FX_IDC:USDINR" data-label="USD / INR"></div>
+</div>
 
-  <div class="presets" id="presets">
-    <button class="preset active" data-min="25" data-kind="focus">
-      <div class="min">25</div><div class="kind">Focus</div>
-    </button>
-    <button class="preset" data-min="5" data-kind="break">
-      <div class="min">5</div><div class="kind">Break</div>
-    </button>
-    <button class="preset" data-min="15" data-kind="break">
-      <div class="min">15</div><div class="kind">Long</div>
-    </button>
-  </div>
-
-  <div class="controls">
-    <button class="icon ghost" id="resetBtn" aria-label="Reset">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-    </button>
-    <button class="primary" id="startBtn">
-      <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-      <span id="startLabel">Start</span>
-    </button>
-    <button class="icon ghost" id="skipBtn" aria-label="Skip">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-    </button>
-  </div>
-</main>
-
-<footer>
-  <div class="stat"><b id="sessionsToday">0</b><span>sessions today</span></div>
-  <div class="stat"><b id="streakDays">0</b><span>day streak</span></div>
-  <div class="stat"><b id="minutesToday">0</b><span>min focused</span></div>
-</footer>
+<footer><span id="updatedAt">loading…</span> · live quotes via TradingView</footer>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const ringFg = $('ringFg');
-  const RING_CIRC = 2 * Math.PI * 46;
-  ringFg.setAttribute('stroke-dasharray', RING_CIRC.toFixed(3));
+  let currentRange = '1M';
 
-  const state = {
-    durationMs: 25 * 60 * 1000,
-    remainingMs: 25 * 60 * 1000,
-    running: false,
-    endAt: 0,
-    kind: 'focus',
-    tickId: null,
-  };
-
-  const stats = loadStats();
-  renderStats();
-
-  function loadStats() {
-    try {
-      const raw = localStorage.getItem('focus.stats');
-      const today = new Date().toISOString().slice(0, 10);
-      if (!raw) return { date: today, sessions: 0, minutes: 0, streak: 0, lastDate: null };
-      const s = JSON.parse(raw);
-      if (s.date !== today) {
-        const y = new Date(); y.setDate(y.getDate() - 1);
-        const yest = y.toISOString().slice(0, 10);
-        const streak = s.date === yest && s.sessions > 0 ? s.streak : (s.sessions > 0 ? s.streak : 0);
-        return { date: today, sessions: 0, minutes: 0, streak, lastDate: s.date };
-      }
-      return s;
-    } catch {
-      return { date: new Date().toISOString().slice(0, 10), sessions: 0, minutes: 0, streak: 0, lastDate: null };
-    }
-  }
-  function saveStats() { localStorage.setItem('focus.stats', JSON.stringify(stats)); }
-  function renderStats() {
-    $('sessionsToday').textContent = stats.sessions;
-    $('minutesToday').textContent = stats.minutes;
-    $('streakDays').textContent = stats.streak;
+  function mountWidget(card) {
+    const symbol = card.dataset.symbol;
+    const label = card.dataset.label;
+    card.innerHTML = `
+      <div class="card-label">${label}</div>
+      <div class="tradingview-widget-container">
+        <div class="tradingview-widget-container__widget"></div>
+      </div>
+    `;
+    const config = {
+      symbol,
+      width: "100%",
+      height: "100%",
+      locale: "en",
+      dateRange: currentRange,
+      colorTheme: "dark",
+      isTransparent: true,
+      autosize: true,
+      largeChartUrl: "",
+      chartOnly: false,
+      noTimeScale: false,
+      trendLineColor: "rgba(124, 92, 255, 1)",
+      underLineColor: "rgba(124, 92, 255, 0.15)",
+      underLineBottomColor: "rgba(124, 92, 255, 0)"
+    };
+    const s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.async = true;
+    s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
+    s.text = JSON.stringify(config);
+    card.querySelector('.tradingview-widget-container').appendChild(s);
   }
 
-  function fmt(ms) {
-    const total = Math.max(0, Math.ceil(ms / 1000));
-    const m = Math.floor(total / 60), s = total % 60;
-    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  function mountAll() {
+    document.querySelectorAll('.card').forEach(mountWidget);
+    $('updatedAt').textContent = 'updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  function render() {
-    $('timeDisplay').textContent = fmt(state.remainingMs);
-    const pct = 1 - state.remainingMs / state.durationMs;
-    ringFg.setAttribute('stroke-dashoffset', (RING_CIRC * pct).toFixed(3));
-    $('modePill').textContent = state.kind === 'focus' ? 'Focus' : 'Break';
-    $('phaseLabel').textContent = state.running ? (state.kind === 'focus' ? 'Focused' : 'Resting') : 'Tap start';
-    document.body.classList.toggle('break', state.kind === 'break');
-    document.title = (state.running ? fmt(state.remainingMs) + ' · ' : '') + (state.kind === 'focus' ? 'Focus' : 'Break');
-    $('startLabel').textContent = state.running ? 'Pause' : 'Start';
-    $('playIcon').innerHTML = state.running
-      ? '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'
-      : '<path d="M8 5v14l11-7z"/>';
-    $('ringWrap').classList.toggle('pulsing', state.running);
-  }
-
-  function start() {
-    if (state.running) return;
-    state.running = true;
-    state.endAt = Date.now() + state.remainingMs;
-    state.tickId = setInterval(tick, 250);
-    tick();
-  }
-  function pause() {
-    if (!state.running) return;
-    state.remainingMs = Math.max(0, state.endAt - Date.now());
-    state.running = false;
-    clearInterval(state.tickId);
-    render();
-  }
-  function reset() {
-    state.running = false;
-    clearInterval(state.tickId);
-    state.remainingMs = state.durationMs;
-    render();
-  }
-  function tick() {
-    state.remainingMs = Math.max(0, state.endAt - Date.now());
-    if (state.remainingMs <= 0) finish();
-    else render();
-  }
-  function finish() {
-    state.running = false;
-    clearInterval(state.tickId);
-    state.remainingMs = 0;
-    render();
-    chime();
-    vibrate([200, 100, 200, 100, 400]);
-    if (state.kind === 'focus') {
-      stats.sessions += 1;
-      stats.minutes += Math.round(state.durationMs / 60000);
-      const today = new Date().toISOString().slice(0, 10);
-      const y = new Date(); y.setDate(y.getDate() - 1);
-      const yest = y.toISOString().slice(0, 10);
-      if (stats.sessions === 1) {
-        stats.streak = stats.lastDate === yest ? (stats.streak || 0) + 1 : 1;
-      }
-      stats.date = today;
-      saveStats();
-      renderStats();
-    }
-    state.remainingMs = state.durationMs;
-    setTimeout(render, 600);
-  }
-
-  let audioCtx = null;
-  function chime() {
-    try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      const notes = [880, 1175, 1568];
-      notes.forEach((freq, i) => {
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.type = 'sine'; o.frequency.value = freq;
-        const t = audioCtx.currentTime + i * 0.18;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.22, t + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-        o.connect(g).connect(audioCtx.destination);
-        o.start(t); o.stop(t + 0.55);
-      });
-    } catch {}
-  }
-  function vibrate(pattern) { try { navigator.vibrate && navigator.vibrate(pattern); } catch {} }
-
-  $('startBtn').addEventListener('click', () => {
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {} }
-    state.running ? pause() : start();
-  });
-  $('resetBtn').addEventListener('click', reset);
-  $('skipBtn').addEventListener('click', () => {
-    state.remainingMs = 0;
-    state.endAt = Date.now();
-    if (state.running) tick(); else finish();
-  });
-
-  document.querySelectorAll('.preset').forEach(btn => {
+  document.querySelectorAll('#ranges button').forEach(btn => {
     btn.addEventListener('click', () => {
-      const mins = +btn.dataset.min;
-      state.kind = btn.dataset.kind;
-      state.durationMs = mins * 60 * 1000;
-      state.remainingMs = state.durationMs;
-      state.running = false;
-      clearInterval(state.tickId);
-      document.querySelectorAll('.preset').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('#ranges button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      render();
+      currentRange = btn.dataset.range;
+      mountAll();
     });
   });
+  $('refreshBtn').addEventListener('click', mountAll);
 
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && state.running) tick(); });
-
-  render();
+  mountAll();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
