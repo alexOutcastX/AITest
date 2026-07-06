@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#05060c" />
+<title>Neon Block City</title>
+<link rel="icon" href="data:," />
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060c; }
+  canvas { display: block; }
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%);
+  }
+  .hud {
+    position: fixed; color: #cfd6e6; font-family: "Courier New", monospace;
+    text-shadow: 0 0 8px rgba(255,60,90,.35), 0 2px 4px #000;
+    user-select: none; pointer-events: none; letter-spacing: .12em;
+  }
+  #title { top: 14px; left: 18px; font-size: 15px; font-weight: bold; color: #ff5c6e; }
+  #title span { color: #7fd8ff; }
+  #hint { bottom: 12px; left: 0; right: 0; text-align: center; font-size: 11px; opacity: .75; }
+  #stick {
+    position: fixed; left: 26px; bottom: 26px; width: 110px; height: 110px;
+    border-radius: 50%; border: 2px solid rgba(255,255,255,.18);
+    background: rgba(20,24,40,.35); display: none; touch-action: none;
+  }
+  #knob {
+    position: absolute; left: 35px; top: 35px; width: 40px; height: 40px;
+    border-radius: 50%; background: rgba(255,92,110,.55);
+    box-shadow: 0 0 14px rgba(255,92,110,.6);
+  }
+  @media (pointer: coarse) { #stick { display: block; } #hint { display: none; } }
+</style>
+</head>
+<body>
+<div id="vignette"></div>
+<div class="hud" id="title">NEON<span>&middot;</span>BLOCK<span>&middot;</span>CITY</div>
+<div class="hud" id="hint">WASD / ARROWS move &nbsp;&middot;&nbsp; Q / E rotate &nbsp;&middot;&nbsp; SCROLL zoom</div>
+<div id="stick"><div id="knob"></div></div>
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/" } }
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
