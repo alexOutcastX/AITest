@@ -13,7 +13,7 @@ Usage:
     res = E.run(df, S.short_orb_breakdown(df)); E.metrics(res, df)
 """
 import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 import numpy as np
 import pandas as pd
 import engine as E

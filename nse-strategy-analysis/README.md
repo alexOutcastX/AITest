@@ -148,18 +148,60 @@ python src/download_data.py     # rebuild the 15-min dataset from source
 - `extensions/` — deeper studies: short-selling, futures leverage/vol-targeting,
   and options overlays (see below).
 
-## 6. Extensions: shorts, leverage, options
+## 6. Extensions: shorts, leverage, options — and the maximum-return stack
 
-See [`extensions/`](extensions/) for three further studies run on top of this base:
+Three deeper studies were run in parallel on top of this base (each with its own
+train/test/old-regime validation and a `results.md`):
 
-- **[Short-selling](extensions/short_selling/results.md)** — can the −58% intraday
-  drift be harvested with shorts, and does a short overlay improve the long book?
-- **[Futures leverage & sizing](extensions/leverage/results.md)** — volatility
-  targeting, ATR sizing and drawdown throttles on the recommended strategy, with
-  walk-forward parameter validation.
-- **[Options overlays](extensions/options/results.md)** — Black–Scholes simulated
-  weekly put-selling, covered calls, protective puts and long-call trend following
-  (model-based, no real chain data — read the caveats).
+### 6.1 [Short-selling](extensions/short_selling/results.md)
+
+The only short edge that survived out-of-sample: **ORB breakdown short** — short a
+15-min close below the first 30 minutes' low while `Close < EMA200`, stop at
+entry + 1.5×ATR(14), square off 15:15, never held overnight. Profit factor
+**1.24–1.25 in all three regimes** (rare consistency). Standalone it makes only
++1.2–3% CAGR, but as an overlay when the long book is flat it **raises CAGR in
+every window and cuts drawdown in two of three** (test: 3.8%→5.4% CAGR, DD
+−13.0%→−9.9%). Rejected after out-of-sample failure: VWAP-band shorts, Monday
+shorts, PM-weakness shorts, RSI fades, Supertrend shorts (even vol-gated).
+
+### 6.2 [Futures leverage & sizing](extensions/leverage/results.md)
+
+**Volatility targeting**: size = min(3×, 20% ÷ trailing 20-day EWMA vol), lagged a
+day. Mean leverage 1.61×; de-levers into storms *before* they hit (worst single day
+−4.75% — better than the unlevered book's −7.96%, because it was below 1× going
+into COVID). Rejected: 25% vol target (breaches −25% DD), ATR sizing (thinner
+buffer), drawdown throttle (costs 4–6pp CAGR for nothing). A walk-forward
+re-optimization (rolling 2y-train → 6m-trade) confirmed **Supertrend(14,3) is not
+overfit** — 13/15 out-of-sample slices profitable with wandering parameters.
+
+### 6.3 [Options overlays](extensions/options/results.md) *(Black–Scholes simulation — no real chain data; read the caveats)*
+
+- **Covered call (sell 2% OTM weekly against the trend longs)** — clearest winner:
+  13.0% CAGR / −16.9% DD / PF 1.87 vs 8.9% / −22.3% / 1.50 bare, robust across IV
+  assumptions.
+- **Protective put (5% OTM monthly)** — costs ~1.6–3 CAGR pts, cuts buy-&-hold DD
+  −34%→−19% (COVID: −4% vs −17%).
+- **Trend-gated put selling** — cash-plus yield (PF 2.08, 92% wins, −4.5% DD) but
+  its COVID escape is partly a gate artifact; treat modestly.
+- **Doesn't work**: ungated put selling (one week of March 2020 erased ~3 years of
+  premium) and buying weekly ATM calls as the trend vehicle (theta eats the edge,
+  PF 0.80).
+
+### 6.4 The maximum-return stack ([`extensions/full_stack.py`](extensions/full_stack.py))
+
+All validated layers combined — long book + ORB short overlay + vol targeting —
+net of costs **and** a 4.5%/yr futures carry drag on long notional:
+
+| Layer (cumulative) | Full 2015–24 CAGR | maxDD | Sharpe | PF | Test 22–24 CAGR |
+|---|---|---|---|---|---|
+| 1. Combo long book (carry-adjusted) | 12.8% | −14.8% | 1.06 | 1.55 | 1.3% |
+| 2. + ORB short overlay | 14.1% | −13.0% | 1.15 | 1.40 | 2.9% |
+| 3. + vol targeting ≤3× | **21.7%** | −16.6% | **1.31** | 1.43 | **12.0%** |
+
+Every layer improves return in **every** validation window; the stack's worst
+single day over 9 years was −5.2%. The residual (unobserved) tail: a large
+overnight gap arriving while at the 3× cap. Leverage is only viable at
+futures-grade friction — at 0.05%/side the levered edge collapses.
 
 ---
 

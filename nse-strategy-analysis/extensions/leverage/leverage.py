@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, ".."))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "src"))
 import engine as E
 
 # ---------------- final parameters ----------------
@@ -69,7 +69,7 @@ def run_carry(df, pos, cost=0.00025, label=""):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv(os.path.join(HERE, "..", "nifty50_15min.csv"),
+    df = pd.read_csv(os.path.join(HERE, "..", "..", "data", "nifty50_15min.csv"),
                      index_col=0, parse_dates=True)
     pos = final_pos(df)
     print(f"vol-target {TARGET_VOL:.0%} / cap {MAX_LEV:g}x  (carry {CARRY:.1%}/yr on longs)")
