@@ -1,15 +1,19 @@
-# NSE (NIFTY 50) 15-Minute Strategy Analysis — 2015–2024
+# NSE (NIFTY 50) 15-Minute Strategy Analysis — 2015–2025
 
-A systematic study of the NIFTY 50 index on the **15-minute timeframe** over ~9 years
-(2015-01-09 → 2024-03-26, 56,748 bars), covering intraday chart behavior, indicator
+A systematic study of the NIFTY 50 index on the **15-minute timeframe** over ~10 years
+(2015-01-09 → 2025-04-07, 63,098 bars), covering intraday chart behavior, indicator
 strategy backtests with train/test validation, and a final recommended strategy with
 high return, low drawdown and a healthy profit factor.
 
 > **Data**: NIFTY 50 spot, 1-minute OHLC resampled to 15-minute session bars
 > (09:15–15:15 IST, 25 bars/day), from the public dataset
-> [sandeepkapri/Nifty50-Minute-Data](https://github.com/sandeepkapri/Nifty50-Minute-Data).
-> Live market APIs are not reachable from this environment, so the sample ends
-> 2024-03-26. Re-run `src/download_data.py` (or swap in your broker's data) to refresh.
+> [sandeepkapri/Nifty50-Minute-Data](https://github.com/sandeepkapri/Nifty50-Minute-Data)
+> (2015-01-09 → 2024-03-26), extended with 15-min candles from
+> [rajgmishra/nifty50-15min-ohlc](https://github.com/rajgmishra/nifty50-15min-ohlc)
+> (→ 2025-04-07; the two vendors agree to ~4.5 bps in the overlapping month).
+> Live market APIs are not reachable from this environment and no public
+> intraday source was found beyond April 2025. Re-run `src/download_data.py`
+> (or swap in your broker's data) to refresh.
 >
 > **Costs**: 0.025% per side (NIFTY futures friction + slippage) charged on every
 > position change. All results below are **net of costs**. Signals are computed on
@@ -121,7 +125,31 @@ tight execution (futures at the close auction, ~1 pt slippage).
 
 ---
 
-## 4. What did NOT work (equally important)
+## 4. True out-of-sample: 2024-03 → 2025-04
+
+Everything above was designed and frozen on data ending 2024-03-26. The period
+2024-03-27 → 2025-04-07 (from a second, independent vendor) is therefore a genuine
+out-of-sample test — and it was a brutal market: **buy & hold made +0.6% with a
+−16.8% drawdown** (the Sept-2024 → Apr-2025 correction). Net results, reproduce
+with `python src/run_oos.py`:
+
+| Strategy | CAGR | maxDD | Sharpe | PF | vs B&H |
+|---|---|---|---|---|---|
+| **ST(14,3) long + overnight — RECOMMENDED** | **+17.8%** | **−4.6%** | 1.89 | 1.95 | +0.5% / −16.8% |
+| Ensemble (3 systems) | +32.3% | −4.3% | 3.48 | 2.45 | |
+| ST(14,3)+EMA200 long/short | +34.2% | −4.7% | 2.99 | 2.29 | |
+| Overnight gap > EMA200 | +4.2% | −2.5% | 1.08 | 1.64 | |
+| Full stack (shorts + vol targeting, carry-adj) | **+40.6%** | −9.1% | 2.22 | 1.93 | |
+
+The drawdown-avoidance thesis did exactly what it was built for: the trend systems
+went flat/short through the correction while the index gave back a sixth of its
+value. Two honest observations: (a) the long/short and short-overlay variants —
+mediocre in 2022-24 — earned their keep here, which is why they stay in the stack;
+(b) the overnight-gap edge was much weaker this year (+2.3% overnight vs −1.4%
+intraday — still positive, but compressed), so treat the gap leg as the smaller
+component going forward.
+
+## 5. What did NOT work (equally important)
 
 | Idea | Result | Why |
 |---|---|---|
@@ -133,12 +161,13 @@ tight execution (futures at the close auction, ~1 pt slippage).
 
 ---
 
-## 5. Reproduce it
+## 6. Reproduce it
 
 ```bash
 pip install -r requirements.txt
-python src/run_backtests.py     # every table above
-python src/make_charts.py       # every chart (run from src/, expects ../data)
+python src/run_backtests.py     # design-period tables (2015-24)
+python src/run_oos.py           # true out-of-sample validation (2024-25)
+python src/make_charts.py       # every chart
 python src/download_data.py     # rebuild the 15-min dataset from source
 ```
 
@@ -148,12 +177,12 @@ python src/download_data.py     # rebuild the 15-min dataset from source
 - `extensions/` — deeper studies: short-selling, futures leverage/vol-targeting,
   and options overlays (see below).
 
-## 6. Extensions: shorts, leverage, options — and the maximum-return stack
+## 7. Extensions: shorts, leverage, options — and the maximum-return stack
 
 Three deeper studies were run in parallel on top of this base (each with its own
 train/test/old-regime validation and a `results.md`):
 
-### 6.1 [Short-selling](extensions/short_selling/results.md)
+### 7.1 [Short-selling](extensions/short_selling/results.md)
 
 The only short edge that survived out-of-sample: **ORB breakdown short** — short a
 15-min close below the first 30 minutes' low while `Close < EMA200`, stop at
@@ -164,7 +193,7 @@ every window and cuts drawdown in two of three** (test: 3.8%→5.4% CAGR, DD
 −13.0%→−9.9%). Rejected after out-of-sample failure: VWAP-band shorts, Monday
 shorts, PM-weakness shorts, RSI fades, Supertrend shorts (even vol-gated).
 
-### 6.2 [Futures leverage & sizing](extensions/leverage/results.md)
+### 7.2 [Futures leverage & sizing](extensions/leverage/results.md)
 
 **Volatility targeting**: size = min(3×, 20% ÷ trailing 20-day EWMA vol), lagged a
 day. Mean leverage 1.61×; de-levers into storms *before* they hit (worst single day
@@ -174,7 +203,7 @@ buffer), drawdown throttle (costs 4–6pp CAGR for nothing). A walk-forward
 re-optimization (rolling 2y-train → 6m-trade) confirmed **Supertrend(14,3) is not
 overfit** — 13/15 out-of-sample slices profitable with wandering parameters.
 
-### 6.3 [Options overlays](extensions/options/results.md) *(Black–Scholes simulation — no real chain data; read the caveats)*
+### 7.3 [Options overlays](extensions/options/results.md) *(Black–Scholes simulation — no real chain data; read the caveats)*
 
 - **Covered call (sell 2% OTM weekly against the trend longs)** — clearest winner:
   13.0% CAGR / −16.9% DD / PF 1.87 vs 8.9% / −22.3% / 1.50 bare, robust across IV
@@ -187,7 +216,7 @@ overfit** — 13/15 out-of-sample slices profitable with wandering parameters.
   premium) and buying weekly ATM calls as the trend vehicle (theta eats the edge,
   PF 0.80).
 
-### 6.4 The maximum-return stack ([`extensions/full_stack.py`](extensions/full_stack.py))
+### 7.4 The maximum-return stack ([`extensions/full_stack.py`](extensions/full_stack.py))
 
 All validated layers combined — long book + ORB short overlay + vol targeting —
 net of costs **and** a 4.5%/yr futures carry drag on long notional:
@@ -212,6 +241,6 @@ futures-grade friction — at 0.05%/side the levered edge collapses.
 - The dataset is **spot index** prices; you trade futures — basis, rollover and
   carry (~4–5%/yr on longs vs spot in contango) shave real-world returns.
   The overnight-gap leg in particular depends on close/open execution quality.
-- Sample ends 2024-03; validate on 2024-26 data before trading.
+- Sample now ends 2025-04-07 (latest public intraday data reachable from this environment); validate on newer data before trading.
 - The overnight-gap edge is well documented publicly, and crowded edges decay.
 - Nothing here is investment advice.

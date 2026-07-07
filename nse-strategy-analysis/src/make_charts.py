@@ -1,4 +1,5 @@
 """Report charts for the NSE 15-min strategy analysis (light-mode PNGs)."""
+import os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -23,7 +24,15 @@ plt.rcParams.update({
     "axes.spines.top": False, "axes.spines.right": False,
 })
 
-full = pd.read_csv("nifty50_15min.csv", index_col=0, parse_dates=True)
+HERE = os.path.dirname(os.path.abspath(__file__))
+DATA = os.path.join(HERE, "..", "data")
+CHARTS = os.path.join(HERE, "..", "charts")
+OOS_START = pd.Timestamp("2024-03-27")
+full = pd.concat([
+    pd.read_csv(os.path.join(DATA, "nifty50_15min.csv"), index_col=0, parse_dates=True),
+    pd.read_csv(os.path.join(DATA, "nifty50_15min_2024_25.csv"), index_col=0, parse_dates=True),
+])
+full = full[~full.index.duplicated()].sort_index()
 
 def strat_overnight(df, trend=None):
     idx = df.index
@@ -63,13 +72,18 @@ for name, e in daily.items():
     lw = 1.6 if name == "Buy & hold" else 2.0
     ax.plot(e.index, e.values, color=colors[name], lw=lw, label=name,
             zorder=2 if name == "Buy & hold" else 3)
+    yoff = {"Ensemble (3 systems)": -14, "ST(14,3) long + overnight": 6}.get(name, 0)
     ax.annotate(f" {name}  {e.iloc[-1]:.1f}x", (e.index[-1], e.iloc[-1]),
-                color=colors[name], fontsize=9, fontweight="bold", va="center")
-ax.set_title("NIFTY 50, 15-min strategies — growth of ₹1 (2015–2024, net of costs)")
-ax.grid(axis="y"); ax.set_xlim(daily["Buy & hold"].index[0], daily["Buy & hold"].index[-1] + pd.Timedelta(days=780))
+                color=colors[name], fontsize=9, fontweight="bold", va="center",
+                xytext=(2, yoff), textcoords="offset points")
+ax.axvspan(OOS_START, daily["Buy & hold"].index[-1], color="#f0efec", zorder=0)
+ax.annotate("out-of-sample →", (OOS_START, 0.04), xycoords=("data", "axes fraction"),
+            color=MUTED, fontsize=8.5, ha="left", va="bottom", rotation=0, xytext=(4, -2), textcoords="offset points")
+ax.set_title("NIFTY 50, 15-min strategies — growth of ₹1 (2015–2025, net of costs)")
+ax.grid(axis="y"); ax.set_xlim(daily["Buy & hold"].index[0], daily["Buy & hold"].index[-1] + pd.Timedelta(days=900))
 ax.legend(frameon=False, loc="upper left", labelcolor=INK2)
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-fig.tight_layout(); fig.savefig("chart_equity.png", facecolor=PAGE); plt.close(fig)
+fig.tight_layout(); fig.savefig(os.path.join(CHARTS, "chart_equity.png"), facecolor=PAGE); plt.close(fig)
 
 # ---- 2. drawdown ----
 fig, ax = plt.subplots(figsize=(10, 3.6), dpi=150)
@@ -77,10 +91,11 @@ for name in ["Buy & hold", "ST(14,3) long + overnight", "Overnight > EMA200"]:
     e = daily[name]
     dd = (e / e.cummax() - 1) * 100
     ax.plot(dd.index, dd.values, color=colors[name], lw=1.8, label=name)
+ax.axvspan(OOS_START, daily["Buy & hold"].index[-1], color="#f0efec", zorder=0)
 ax.set_title("Drawdown from peak (%)")
 ax.grid(axis="y"); ax.legend(frameon=False, loc="lower right", labelcolor=INK2)
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-fig.tight_layout(); fig.savefig("chart_drawdown.png", facecolor=PAGE); plt.close(fig)
+fig.tight_layout(); fig.savefig(os.path.join(CHARTS, "chart_drawdown.png"), facecolor=PAGE); plt.close(fig)
 
 # ---- 3. overnight vs intraday decomposition ----
 d5 = full[full.index >= "2019-03-27"]
@@ -98,7 +113,7 @@ ax.annotate(" −58%", (intr.index[-1], (1+intr).cumprod().iloc[-1]), color=RED,
 ax.set_title("Where NIFTY's return actually comes from (2019–2024): overnight gaps, not the session")
 ax.grid(axis="y"); ax.legend(frameon=False, loc="upper left", labelcolor=INK2)
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-fig.tight_layout(); fig.savefig("chart_overnight.png", facecolor=PAGE); plt.close(fig)
+fig.tight_layout(); fig.savefig(os.path.join(CHARTS, "chart_overnight.png"), facecolor=PAGE); plt.close(fig)
 
 # ---- 4. time-of-day profile (diverging bars) ----
 ret = d5.Close.pct_change()
@@ -113,7 +128,7 @@ ax.axhline(0, color=BASE, lw=1)
 ax.set_title("Average 15-min bar return by time of day (bps, 2019–2024)")
 ax.set_ylabel("bps"); ax.grid(axis="y")
 plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=8)
-fig.tight_layout(); fig.savefig("chart_timeofday.png", facecolor=PAGE); plt.close(fig)
+fig.tight_layout(); fig.savefig(os.path.join(CHARTS, "chart_timeofday.png"), facecolor=PAGE); plt.close(fig)
 
 # ---- 5. Supertrend parameter heatmap (train window, ret/DD) ----
 train = full[(full.index >= "2019-03-27") & (full.index < "2022-04-01")]
@@ -135,6 +150,6 @@ for i in range(len(ns)):
                 color="#ffffff" if Z[i,j] > Z.max()*0.55 else INK, fontsize=10, fontweight="bold")
 ax.set_title("Supertrend(ATR, mult) + EMA200 — CAGR / maxDD\n(train 2019–2022; broad plateau = robust)")
 ax.set_xlabel("ATR multiplier"); ax.set_ylabel("ATR period")
-fig.tight_layout(); fig.savefig("chart_heatmap.png", facecolor=PAGE); plt.close(fig)
+fig.tight_layout(); fig.savefig(os.path.join(CHARTS, "chart_heatmap.png"), facecolor=PAGE); plt.close(fig)
 
 print("charts written")
