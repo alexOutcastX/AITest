@@ -351,12 +351,12 @@ function building(bx, bz, w, d, floors, facing, dir) {
     sp.position.y = h * 0.62;
     if (pointBudget.length < 12 && rng() < 0.4) neonLight(vx, h * 0.5, vz, P.neonRed, 10, 11);
   }
-  // hanging lanterns at the eave
+  // hanging lanterns at the awning's edge, above head height
   if (rng() < 0.75) {
     const [l1x, l1z] = out(1.4, -fw * 0.32);
     const [l2x, l2z] = out(1.4, fw * 0.32);
-    lantern(l1x, 2.2, l1z);
-    lantern(l2x, 2.2, l2z);
+    lantern(l1x, 3.2, l1z);
+    lantern(l2x, 3.2, l2z);
   }
 
   // ---- upper floors: windows on all 4 sides
@@ -420,40 +420,58 @@ function vendingMachine(x, z, ry) {
   addCollider(x - 0.8, z - 0.8, x + 0.8, z + 0.8);
 }
 
-// place buildings around each block's edges, storefronts facing the streets
+// place buildings in block corners with a guaranteed clear sidewalk ring:
+// building footprints stop 2.6 inside the block edge, NPC paths run at 1.2,
+// and footprints are capped so the two buildings on a side never meet.
+const SIDEWALK = 2.6;
 const blockDefs = [];
 for (let bi = 0; bi < 3; bi++) for (let bj = 0; bj < 3; bj++) blockDefs.push([bi, bj]);
 for (const [bi, bj] of blockDefs) {
   const [x0, x1] = spans[bi], [z0, z1] = spans[bj];
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const hx = (x1 - x0) / 2, hz = (z1 - z0) / 2;
   if (bi === 1 && bj === 1) {
-    // center block: dense market plaza — the heart, like the ref diorama
-    building(cx - 6.5, cz - 5.5, 10, 11, 4, 'z', 1);
-    building(cx + 6.0, cz - 5.0, 9, 10, 3, 'x', 1);
-    building(cx + 5.5, cz + 6.0, 10, 9, 2, 'z', -1);
-    building(cx - 6.0, cz + 6.5, 9, 8, 2, 'x', -1);
-    crtTV(cx - 6.5, 0.35 + 4 * 3.2 + 0.85, cz - 5.5, 0.3);
-    lanternString(cx - 9, 4.5, cz + 1.5, cx + 8, 4.8, cz + 2.5, 7);
-    vendingMachine(cx + 10.3, cz + 1, Math.PI / 2);
+    // center block: market plaza ringed by four shops facing inward, like the ref diorama
+    const q = [
+      { ux: -1, uz: -1, w: R(6, 6.8), d: R(6, 6.8), floors: 4, facing: 'z', dir: 1 },
+      { ux: 1, uz: -1, w: R(5.5, 6.5), d: R(5.5, 6.5), floors: 3, facing: 'x', dir: -1 },
+      { ux: 1, uz: 1, w: R(5.5, 6.5), d: R(5.5, 6.5), floors: 2, facing: 'z', dir: -1 },
+      { ux: -1, uz: 1, w: R(5.5, 6.5), d: R(5.5, 6.5), floors: 2, facing: 'x', dir: 1 },
+    ];
+    let tv = null;
+    for (const s of q) {
+      const sx = cx + s.ux * (hx - SIDEWALK - s.w / 2);
+      const sz = cz + s.uz * (hz - SIDEWALK - s.d / 2);
+      const { h } = building(sx, sz, s.w, s.d, s.floors, s.facing, s.dir);
+      if (!tv) tv = { x: sx, y: h + 0.35, z: sz };
+    }
+    crtTV(tv.x, tv.y, tv.z, 0.3);
+    lanternString(cx - 7, 5.3, cz - 0.5, cx + 7, 5.6, cz + 0.8, 7);
+    vendingMachine(cx, cz + 3.5, Math.PI / 2);
     neonLight(cx, 3, cz + 10, P.neonPink, 16, 15);
     neonLight(cx - 10, 3.5, cz - 10.5, P.neonRed, 14, 13);
     glowPool(cx + 1, cz + 10.5, P.neonPink, 7, 0.4);
     glowPool(cx - 10.5, cz - 10, P.neonRed, 6, 0.38);
   } else {
-    // 2–3 buildings per block, facing the nearest road
+    // 2–3 buildings per block, storefronts preferring a road-facing side
     const n = RI(2, 3);
-    const spots = [
-      { x: cx - 6, z: cz - 6 }, { x: cx + 6, z: cz - 6 },
-      { x: cx - 6, z: cz + 6 }, { x: cx + 6, z: cz + 6 },
-    ].sort(() => rng() - 0.5).slice(0, n);
-    for (const s of spots) {
-      const w = R(8, 10.5), d = R(8, 10.5);
-      const facing = Math.abs(s.x - cx) > Math.abs(s.z - cz) ? 'x' : 'z';
-      const dir = facing === 'x' ? Math.sign(s.x - cx) || 1 : Math.sign(s.z - cz) || 1;
-      building(s.x, s.z, Math.min(w, 10.5), Math.min(d, 10.5), RI(2, 4), facing, dir);
+    const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].sort(() => rng() - 0.5).slice(0, n);
+    for (const [ux, uz] of corners) {
+      const w = R(7, Math.min(10, hx - 3.6));
+      const d = R(7, Math.min(10, hz - 3.6));
+      const sx = cx + ux * (hx - SIDEWALK - w / 2);
+      const sz = cz + uz * (hz - SIDEWALK - d / 2);
+      const okX = bi === 1 || (bi === 0 && ux === 1) || (bi === 2 && ux === -1);
+      const okZ = bj === 1 || (bj === 0 && uz === 1) || (bj === 2 && uz === -1);
+      let facing;
+      if (okX && okZ) facing = rng() < 0.5 ? 'x' : 'z';
+      else if (okX) facing = 'x';
+      else if (okZ) facing = 'z';
+      else facing = rng() < 0.5 ? 'x' : 'z';
+      building(sx, sz, w, d, RI(2, 4), facing, facing === 'x' ? ux : uz);
     }
-    if (rng() < 0.5) vendingMachine(cx + R(-3, 3), cz + R(-3, 3), pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]));
-    if (rng() < 0.4) glowPool(cx + R(-6, 6), cz + R(-6, 6), pick([P.neonCyan, P.neonPink]), 5, 0.25);
+    if (rng() < 0.6) vendingMachine(cx, cz + R(-4, 4), pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]));
+    if (rng() < 0.4) glowPool(cx + R(-2, 2), cz + R(-6, 6), pick([P.neonCyan, P.neonPink]), 5, 0.25);
   }
 }
 neonLight(0, 4, -20.5, P.neonCyan, 12, 14);
@@ -528,7 +546,14 @@ function animChar(ch, moving, speed, t) {
 
 // player
 const player = makeCharacter({ shirt: 0xe8e2d4, pants: 0x2c3a44, hair: 0x1a1a22 });
-player.position.set(2, 0.45, 26);
+player.position.set(0, 0.45, 9.7); // south sidewalk of the market block, in clear view, off the NPC path line
+
+// locator diamond above the player, drawn through buildings so you never lose yourself
+const markerMat = new THREE.MeshBasicMaterial({ color: 0xff5c8a, transparent: true, opacity: 0.85, depthTest: false });
+const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.34), markerMat);
+marker.renderOrder = 999;
+scene.add(marker);
+let focusT = 0;
 
 // NPCs walk loops around their block's sidewalk
 const npcs = [];
@@ -669,6 +694,15 @@ addEventListener('wheel', (e) => {
   setFrustum();
 }, { passive: true });
 
+function focusPlayer() {
+  viewSize = 26;
+  setFrustum();
+  camTarget.copy(player.position);
+  focusT = 2.5;
+}
+document.getElementById('focus')?.addEventListener('click', focusPlayer);
+addEventListener('keydown', (e) => { if (e.code === 'KeyF') focusPlayer(); });
+
 // touch joystick
 const stick = document.getElementById('stick');
 const knob = document.getElementById('knob');
@@ -728,6 +762,16 @@ function tick() {
     moving = true;
   }
   animChar(player, moving, 1, t);
+
+  // locator marker: bobbing diamond, pulses big after "find me"
+  marker.position.set(player.position.x, player.position.y + 3.1 + Math.sin(t * 3) * 0.15, player.position.z);
+  marker.rotation.y = t * 1.5;
+  if (focusT > 0) {
+    focusT -= dt;
+    marker.scale.setScalar(1 + Math.max(0, Math.sin(focusT * 5)) * 1.1);
+  } else {
+    marker.scale.setScalar(1);
+  }
 
   // --- NPCs
   for (const n of npcs) {

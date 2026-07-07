@@ -32,13 +32,24 @@
     box-shadow: 0 0 14px rgba(255,92,110,.6);
   }
   @media (pointer: coarse) { #stick { display: block; } #hint { display: none; } }
+  #focus {
+    position: fixed; right: 18px; bottom: 14px; z-index: 6;
+    font-family: "Courier New", monospace; font-weight: bold; font-size: 12px;
+    letter-spacing: .12em; color: #ff8fa3; background: rgba(20,24,40,.55);
+    border: 1px solid rgba(255,92,110,.55); border-radius: 6px;
+    padding: 9px 14px; cursor: pointer;
+    text-shadow: 0 0 8px rgba(255,60,90,.5);
+    box-shadow: 0 0 12px rgba(255,60,90,.25);
+  }
+  #focus:hover { background: rgba(60,28,44,.7); color: #ffd6de; }
 </style>
 </head>
 <body>
 <div id="vignette"></div>
 <div class="hud" id="title">NEON<span>&middot;</span>BLOCK<span>&middot;</span>CITY</div>
-<div class="hud" id="hint">WASD / ARROWS move &nbsp;&middot;&nbsp; Q / E rotate &nbsp;&middot;&nbsp; SCROLL zoom</div>
+<div class="hud" id="hint">WASD / ARROWS move &nbsp;&middot;&nbsp; Q / E rotate &nbsp;&middot;&nbsp; SCROLL zoom &nbsp;&middot;&nbsp; F find player</div>
 <div id="stick"><div id="knob"></div></div>
+<button id="focus">&#9678; FIND ME</button>
 <script type="importmap">
 { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/" } }
 </script>
