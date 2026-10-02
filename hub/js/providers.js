@@ -7,6 +7,14 @@
 //   gemini    — Google Generative Language API
 export const PROVIDERS = [
   {
+    // Only inside the Claude app: answers come from the viewer's own claude.ai
+    // plan through the artifact `sample` capability. No API key involved.
+    id: 'claudeai', label: 'Claude', vendor: 'your claude.ai plan', kind: 'sample', color: '#d97757',
+    embeddedOnly: true, keyOptional: true, noModelList: true,
+    models: ['default', 'complex', 'quick'],
+    keyUrl: '',
+  },
+  {
     id: 'anthropic', label: 'Claude', vendor: 'Anthropic', kind: 'anthropic', color: '#d97757',
     baseUrl: 'https://api.anthropic.com/v1',
     models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-4-5'],
@@ -208,9 +216,49 @@ function trimBase(u) { return (u || '').replace(/\/+$/, ''); }
 
 function parseJson(s) { try { return JSON.parse(s); } catch { return null; } }
 
+// The artifact `sample` function, set by the app when it runs inside Claude.
+let sampler = null;
+export function setSampler(fn) { sampler = fn; }
+
+const SAMPLE_HINTS = {
+  not_granted: 'Allow Claude to answer when the app asks. Reload the page to be asked again.',
+  rate_limited: 'Your claude.ai plan is busy or at its limit. Wait a moment, or let another AI answer.',
+  session_expired: 'Your claude.ai session expired. Reload the page.',
+  sampling_disabled: 'Claude answers are turned off for this page or your organization.',
+  prompt_too_large: 'This session is too long for one request. Start a new session.',
+};
+
+// Callback-style sample() → the same async-generator shape as the HTTP adapters.
+async function* streamSample({ system, messages, model, signal }) {
+  if (!sampler) throw new ProviderError('Claude is only available when AI Hub runs inside the Claude app.');
+  // There is no page-controlled system prompt: put it in the first user turn.
+  const turns = messages.map((m, i) => (i === 0 ? { role: m.role, content: `${system}\n\n---\n\n${m.content}` } : m));
+  const queue = [];
+  let wake = null, done = false, failure = null;
+  const push = () => { if (wake) { wake(); wake = null; } };
+  sampler(turns, {
+    signal, cache: false, modelTier: model || 'default',
+    onText: ({ delta }) => { if (delta) { queue.push(delta); push(); } },
+  }).then(() => { done = true; push(); }, e => { failure = e; done = true; push(); });
+
+  for (;;) {
+    while (queue.length) yield { type: 'text', text: queue.shift() };
+    if (done) break;
+    await new Promise(r => { wake = r; });
+  }
+  if (failure) {
+    if (failure.code === 'cancelled') throw Object.assign(new Error('Stopped'), { name: 'AbortError' });
+    throw new ProviderError(failure.message || failure.code || 'Claude could not answer.', { hint: SAMPLE_HINTS[failure.code] });
+  }
+}
+
 // Stream one reply. Yields {type:'text', text} chunks and {type:'usage',
 // input, output} snapshots (cumulative — the last one wins).
 export async function* streamChat({ provider, cfg, model, system, messages, signal, maxTokens = 8192, fetchImpl = fetch }) {
+  if (provider.kind === 'sample') {
+    yield* streamSample({ system, messages, model, signal });
+    return;
+  }
   const base = trimBase(cfg.baseUrl || provider.baseUrl);
   const key = cfg.apiKey || '';
 

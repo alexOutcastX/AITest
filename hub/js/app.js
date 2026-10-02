@@ -1,5 +1,6 @@
 import {
-  PROVIDERS, providerById, displayName, systemPromptFor, buildTranscript, streamChat, listModels, fetchCredits,
+  PROVIDERS as ALL_PROVIDERS, providerById, displayName, systemPromptFor, buildTranscript, streamChat, listModels, fetchCredits,
+  setSampler,
 } from './providers.js';
 import * as S from './store.js';
 import * as G from './google.js';
@@ -9,6 +10,12 @@ import { GOOGLE_CLIENT_ID } from '../config.js';
 // ---------- helpers ----------
 
 const $ = sel => document.querySelector(sel);
+
+// Running as an artifact inside the Claude app: the page can't reach other
+// sites (no Google sign-in, no provider APIs), but it can ask Claude on the
+// viewer's own claude.ai plan.
+const EMBEDDED = typeof window.claude?.use === 'function';
+const PROVIDERS = ALL_PROVIDERS.filter(p => !!p.embeddedOnly === EMBEDDED);
 
 function h(tag, props, ...children) {
   const el = document.createElement(tag);
@@ -47,6 +54,20 @@ function toast(msg, ms = 3200) {
   t.textContent = msg; t.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+}
+
+// In-page yes/no dialog. Resolves true when the person confirms.
+function ask(message, { ok = 'OK', cancel = 'Cancel', danger = false } = {}) {
+  return new Promise(resolve => {
+    const d = h('dialog', { class: 'ask' },
+      h('p', {}, message),
+      h('div', { class: 'ask-row' },
+        h('button', { class: 'btn', onclick: () => d.close('no') }, cancel),
+        h('button', { class: `btn ${danger ? 'danger-fill' : 'primary'}`, onclick: () => d.close('yes') }, ok)));
+    d.addEventListener('close', () => { resolve(d.returnValue === 'yes'); d.remove(); });
+    document.body.append(d);
+    d.showModal();
+  });
 }
 
 const clientId = () => (storage.getItem('aihub:clientId') || GOOGLE_CLIENT_ID || '').trim();
@@ -157,9 +178,9 @@ function useGuest() {
   boot();
 }
 
-function signOut() {
+async function signOut() {
   if (active) active.controller.abort();
-  if (isGoogle() && confirm('Remove this account\'s data from this device too? (Your sessions stay in your Google Drive.)')) {
+  if (isGoogle() && await ask('Also remove this account\'s data from this device? Your sessions stay in your Google Drive.', { ok: 'Remove from device', cancel: 'Keep on device' })) {
     storage.removeItem(`aihub:state:${account.id}`);
   }
   G.signOut();
@@ -173,6 +194,7 @@ function boot() {
   $('#login').hidden = true;
   $('#app').hidden = false;
   state = S.loadState(storage, account.id);
+  if (EMBEDDED && !state.settingsUpdatedAt) state.providers.claudeai.enabled = true;
   currentId = state.sessions[0]?.id || null;
   if (isGoogle()) setSync(G.hasValidToken() ? 'ok' : 'paused', G.hasValidToken() ? '✓ Connected to Google Drive' : '⟳ Tap to sync with Google Drive');
   else setSync('', '');
@@ -211,9 +233,9 @@ function ensureSession() {
   return s;
 }
 
-function deleteSession(id) {
+async function deleteSession(id) {
   const s = state.sessions.find(x => x.id === id);
-  if (!s || !confirm(`Delete "${s.title}"?`)) return;
+  if (!s || !await ask(`Delete "${s.title}"?`, { ok: 'Delete', danger: true })) return;
   if (active && active.sessionId === id) active.controller.abort();
   state.sessions = state.sessions.filter(x => x.id !== id);
   state.deleted[id] = Date.now();
@@ -374,7 +396,7 @@ function renderSidebar() {
       : h('span', { class: 'avatar' }, isGoogle() ? (account.name || '?')[0] : '👤'),
     h('div', { class: 'who' },
       h('div', {}, account.name || 'Guest'),
-      h('div', { class: 'muted' }, account.email || 'This device only')),
+      h('div', { class: 'muted' }, EMBEDDED ? 'Saved in this browser' : account.email || 'This device only')),
   );
 }
 
@@ -560,6 +582,18 @@ function providerCard(p, open) {
   const rerender = () => { renderSettings(); renderComposer(); };
   const models = [...new Set([...(c.models.length ? c.models : p.models), c.model].filter(Boolean))];
 
+  if (p.kind === 'sample') {
+    return h('details', { class: 'pcard', open: true, 'data-pid': p.id, style: `--ai:${p.color}` },
+      h('summary', {}, h('i', { class: 'dot' }), h('b', {}, p.label), h('span', { class: 'muted vendor' }, p.vendor),
+        h('span', { class: 'grow' }), h('span', { class: 'badge ok' }, 'Linked')),
+      h('div', { class: 'pbody' },
+        field('Default effort',
+          h('select', {
+            onchange: e => { cfgOf(p.id).model = e.target.value; persist({ settings: true }); renderComposer(); },
+          }, p.models.map(m => h('option', { value: m, selected: m === c.model }, m))),
+          h('span', { class: 'help' }, 'quick answers fastest; complex thinks longest. Your claude.ai plan\'s own limits apply.')),
+        h('div', { class: 'usage-line' }, `This month: ~${fmtNum(mu.input)} in · ~${fmtNum(mu.output)} out · ${mu.requests} replies (estimated)`)));
+  }
   return h('details', { class: 'pcard', open, 'data-pid': p.id, style: `--ai:${p.color}` },
     h('summary', {},
       h('i', { class: 'dot' }), h('b', {}, p.label), h('span', { class: 'muted vendor' }, p.vendor),
@@ -606,9 +640,9 @@ function providerCard(p, open) {
         h('span', {}, `This month: ${fmtNum(mu.input)} in · ${fmtNum(mu.output)} out · ${mu.requests} requests`),
         c.budget ? h('span', { class: 'bar' }, h('i', { style: `width:${Math.min(100, (mu.total / c.budget) * 100)}%` })) : null,
         mu.requests ? h('button', {
-          class: 'btn small ghost', onclick: e => {
+          class: 'btn small ghost', onclick: async e => {
             e.preventDefault();
-            if (!confirm(`Reset ${p.label}'s usage counter for this month?`)) return;
+            if (!await ask(`Reset ${p.label}'s usage counter for this month?`, { ok: 'Reset' })) return;
             delete cfgOf(p.id).usage[S.monthKey()]; persist({ settings: true }); rerender();
           },
         }, 'Reset') : null),
@@ -663,9 +697,12 @@ function renderSettings(focusPid) {
       h('button', { class: 'btn small primary', onclick: signInGoogle }, 'Sign in with Google to sync'),
       h('button', { class: 'btn small ghost', onclick: signOut }, 'Back to start'));
 
-  body.replaceChildren(
+  body.replaceChildren(...[
     h('h3', {}, 'Linked AIs'),
-    h('p', { class: 'note' },
+    EMBEDDED ? h('p', { class: 'note' },
+      'Inside the Claude app, Claude answers using your claude.ai plan, so it needs no key. The first reply asks you to allow it. ',
+      'This page can\'t contact other sites, so Gemini, Grok, ChatGPT and the others only work in the full AI Hub app, which you open in a normal browser tab.')
+    : h('p', { class: 'note' },
       'Paste an API key for each AI you use. Consumer plans (Claude Pro, Gemini Advanced, SuperGrok, ChatGPT Plus) can\'t be used by other apps, so each AI needs an API key, billed by that provider. ',
       'Keys go straight from your browser to the provider and are never sent anywhere else.'),
     ...PROVIDERS.map(p => providerCard(p, openIds.has(p.id) || p.id === focusPid)),
@@ -676,16 +713,16 @@ function renderSettings(focusPid) {
         rows: 3, placeholder: 'e.g. Be concise. Answer in English.', value: state.prefs.systemPrompt,
         onchange: e => { state.prefs.systemPrompt = e.target.value; persist({ settings: true }); },
       })),
-    h('div', { style: 'height:10px' }),
-    field('Max reply length (tokens, used by Claude)',
+    EMBEDDED ? null : h('div', { style: 'height:10px' }),
+    EMBEDDED ? null : field('Max reply length (tokens, used by Claude)',
       h('input', {
         type: 'number', min: '256', step: '256', value: String(state.prefs.maxTokens),
         onchange: e => { state.prefs.maxTokens = Math.max(256, Number(e.target.value) || 8192); persist({ settings: true }); },
       })),
 
-    h('h3', {}, 'Account'),
-    acct,
-    h('details', { class: 'client-setup', style: 'margin-top:10px' },
+    EMBEDDED ? null : h('h3', {}, 'Account'),
+    EMBEDDED ? null : acct,
+    EMBEDDED ? null : h('details', { class: 'client-setup', style: 'margin-top:10px' },
       h('summary', {}, 'Google sign-in setup'),
       h('p', {}, 'OAuth Client ID (Web application) authorised for ', h('code', {}, location.origin), '. See hub/README.md.'),
       h('div', { class: 'row' },
@@ -699,11 +736,11 @@ function renderSettings(focusPid) {
 
     h('h3', {}, 'Data'),
     h('div', { class: 'acct-row' },
-      h('button', { class: 'btn small', onclick: () => exportData(false) }, 'Export sessions'),
-      h('button', { class: 'btn small', onclick: () => exportData(true) }, 'Export incl. API keys'),
+      EMBEDDED ? null : h('button', { class: 'btn small', onclick: () => exportData(false) }, 'Export sessions'),
+      EMBEDDED ? null : h('button', { class: 'btn small', onclick: () => exportData(true) }, 'Export incl. API keys'),
       h('label', { class: 'btn small' }, 'Import…',
         h('input', { type: 'file', accept: 'application/json,.json', hidden: true, onchange: importData }))),
-  );
+  ].filter(Boolean));
   if (!firstRender) body.scrollTop = scroll;
 }
 
@@ -779,5 +816,14 @@ function wire() {
 }
 
 wire();
-account = S.loadAccount(storage);
-if (account) boot(); else showLogin();
+if (EMBEDDED) {
+  account = { id: 'claude-app', name: 'You', email: '' };
+  boot();
+  window.claude.use('sample').then(fn => {
+    setSampler(fn);
+    if (!fn) toast('Claude answers aren\'t available in this view.', 5000);
+  });
+} else {
+  account = S.loadAccount(storage);
+  if (account) boot(); else showLogin();
+}
