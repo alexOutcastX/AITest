@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same mark as hub/icon.svg: a speech bubble holding three AI dots. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path
+        android:pathData="M37,38h34a7,7 0 0 1 7,7v18a7,7 0 0 1 -7,7H55l-12,9v-9h-6a7,7 0 0 1 -7,-7V45a7,7 0 0 1 7,-7z"
+        android:strokeWidth="4.5" android:strokeLineJoin="round" android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:type="linear" android:startX="30" android:startY="79"
+                android:endX="78" android:endY="38"
+                android:startColor="#7c5cff" android:endColor="#22d3ee" />
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#d97757" android:pathData="M44,54m-3.5,0a3.5,3.5 0 1 1 7,0a3.5,3.5 0 1 1 -7,0" />
+    <path android:fillColor="#4f8cff" android:pathData="M54,54m-3.5,0a3.5,3.5 0 1 1 7,0a3.5,3.5 0 1 1 -7,0" />
+    <path android:fillColor="#f5f7fb" android:pathData="M64,54m-3.5,0a3.5,3.5 0 1 1 7,0a3.5,3.5 0 1 1 -7,0" />
+</vector>

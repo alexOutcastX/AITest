@@ -1,0 +1,83 @@
+import javax.inject.Inject
+
+plugins {
+    id 'com.android.application'
+}
+
+// Optional release signing: create hub/android/keystore.properties with
+// storeFile, storePassword, keyAlias, keyPassword (never commit it).
+def signingProps = new Properties()
+def signingFile = rootProject.file('keystore.properties')
+if (signingFile.exists()) signingFile.withInputStream { signingProps.load(it) }
+
+android {
+    namespace 'app.aihub'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'app.aihub'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        if (signingFile.exists()) {
+            release {
+                storeFile rootProject.file(signingProps['storeFile'])
+                storePassword signingProps['storePassword']
+                keyAlias signingProps['keyAlias']
+                keyPassword signingProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
+
+// The app's UI is the web app in hub/ — copied into the APK's assets at build
+// time, so there is one copy of the code to maintain.
+abstract class CopyWebApp extends DefaultTask {
+    static final List<String> WEB_FILES = ['index.html', 'styles.css', 'icon.svg', 'config.js', 'js/**']
+
+    // hub/ also contains this Android project, so only the web files are inputs.
+    @Internal abstract DirectoryProperty getWebRoot()
+    @OutputDirectory abstract DirectoryProperty getOutputDir()
+    @Inject abstract FileSystemOperations getFs()
+
+    @InputFiles @PathSensitive(PathSensitivity.RELATIVE)
+    FileTree getWebFiles() { webRoot.asFileTree.matching { include WEB_FILES } }
+
+    @TaskAction
+    void copyFiles() {
+        fs.sync {
+            from(webRoot) { include WEB_FILES }
+            into(outputDir.dir('www'))
+        }
+    }
+}
+
+def copyWebApp = tasks.register('copyWebApp', CopyWebApp) {
+    webRoot = rootProject.layout.projectDirectory.dir('..')
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.sources.assets.addGeneratedSourceDirectory(copyWebApp, { CopyWebApp t -> t.outputDir })
+    }
+}

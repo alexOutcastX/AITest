@@ -96,3 +96,27 @@ provider's host and path).
 | `js/markdown.js`       | Small, safe Markdown renderer for replies                       |
 | `proxy/cors-worker.js` | Optional CORS proxy                                             |
 | `test/hub.test.mjs`    | Unit tests: `node --test hub/test/*.test.mjs`                   |
+
+## Android app (APK)
+
+`android/` wraps the same web app in a native Android WebView. The build copies
+`hub/`'s files into the APK, so the two never drift apart.
+
+```sh
+cd hub/android
+echo "sdk.dir=/path/to/android-sdk" > local.properties
+./gradlew assembleRelease     # → app/build/outputs/apk/release/app-release.apk
+```
+
+Without a `keystore.properties` the release build is signed with the debug
+key. To sign with your own key, create `hub/android/keystore.properties` with
+`storeFile`, `storePassword`, `keyAlias` and `keyPassword` (it's git-ignored).
+
+In the app:
+
+- Every AI works, as in the browser. All the provider APIs accept requests from the app.
+- Google doesn't allow its sign-in inside app WebViews, so data stays on the
+  phone. **Export** saves a file and **Import** reads one. Use them to move
+  sessions between the phone and the web app.
+- The back button closes dialogs, settings and the session list before it
+  leaves the app.

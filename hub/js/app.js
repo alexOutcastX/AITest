@@ -15,6 +15,9 @@ const $ = sel => document.querySelector(sel);
 // sites (no Google sign-in, no provider APIs), but it can ask Claude on the
 // viewer's own claude.ai plan.
 const EMBEDDED = typeof window.claude?.use === 'function';
+// Running inside the Android app (hub/android). Google doesn't allow its
+// sign-in inside app WebViews, so the app keeps data on the phone.
+const ANDROID = typeof window.AIHubAndroid?.saveFile === 'function';
 const PROVIDERS = ALL_PROVIDERS.filter(p => !!p.embeddedOnly === EMBEDDED);
 
 function h(tag, props, ...children) {
@@ -396,7 +399,7 @@ function renderSidebar() {
       : h('span', { class: 'avatar' }, isGoogle() ? (account.name || '?')[0] : '👤'),
     h('div', { class: 'who' },
       h('div', {}, account.name || 'Guest'),
-      h('div', { class: 'muted' }, EMBEDDED ? 'Saved in this browser' : account.email || 'This device only')),
+      h('div', { class: 'muted' }, EMBEDDED ? 'Saved in this browser' : ANDROID ? 'Saved on this phone' : account.email || 'This device only')),
   );
 }
 
@@ -687,7 +690,10 @@ function renderSettings(focusPid) {
   const firstRender = !body.childElementCount;
   const scroll = body.scrollTop;
 
-  const acct = isGoogle()
+  const acct = ANDROID
+    ? h('div', { class: 'acct-row' },
+      h('span', {}, 'Everything is saved on this phone. Google sign-in isn\'t available inside apps like this one, so to move sessions between devices use Export and Import below.'))
+    : isGoogle()
     ? h('div', { class: 'acct-row' },
       h('span', {}, `Signed in as ${account.email}. Your sessions, linked AIs and usage sync through your Google Drive (in a private app folder).`),
       h('button', { class: 'btn small', onclick: () => syncNow({ interactive: true }) }, 'Sync now'),
@@ -722,7 +728,7 @@ function renderSettings(focusPid) {
 
     EMBEDDED ? null : h('h3', {}, 'Account'),
     EMBEDDED ? null : acct,
-    EMBEDDED ? null : h('details', { class: 'client-setup', style: 'margin-top:10px' },
+    EMBEDDED || ANDROID ? null : h('details', { class: 'client-setup', style: 'margin-top:10px' },
       h('summary', {}, 'Google sign-in setup'),
       h('p', {}, 'OAuth Client ID (Web application) authorised for ', h('code', {}, location.origin), '. See hub/README.md.'),
       h('div', { class: 'row' },
@@ -747,6 +753,10 @@ function renderSettings(focusPid) {
 function exportData(withKeys) {
   const copy = JSON.parse(JSON.stringify(state));
   if (!withKeys) for (const c of Object.values(copy.providers)) c.apiKey = '';
+  if (ANDROID) {
+    window.AIHubAndroid.saveFile(`ai-hub-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(copy, null, 2));
+    return;
+  }
   const blob = new Blob([JSON.stringify(copy, null, 2)], { type: 'application/json' });
   const a = h('a', { href: URL.createObjectURL(blob), download: `ai-hub-${new Date().toISOString().slice(0, 10)}.json` });
   document.body.append(a); a.click(); a.remove();
@@ -823,7 +833,19 @@ if (EMBEDDED) {
     setSampler(fn);
     if (!fn) toast('Claude answers aren\'t available in this view.', 5000);
   });
+} else if (ANDROID) {
+  account = { id: 'local', name: 'You', email: '' };
+  boot();
 } else {
   account = S.loadAccount(storage);
   if (account) boot(); else showLogin();
 }
+
+// Android back button: close the top-most layer. Returns true if it did.
+window.aiHubBack = () => {
+  const dlg = document.querySelector('dialog.ask[open]');
+  if (dlg) { dlg.close('no'); return true; }
+  if ($('#settings').open) { $('#settings').close(); return true; }
+  if ($('#app').classList.contains('drawer')) { closeDrawer(); return true; }
+  return false;
+};
