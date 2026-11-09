@@ -1,0 +1,12 @@
+{
+  "name": "thornvale-online",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A tiny browser MMO: authoritative Node server + canvas client, zero dependencies.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/smoke.js"
+  },
+  "engines": { "node": ">=18" }
+}

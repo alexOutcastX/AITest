@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#14110f" />
+<title>Thornvale Online</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2314110f'/%3E%3Cpath d='M8 2l2 6-2 6-2-6z' fill='%23e8b04a'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --bg: #14110f; --panel: rgba(24, 20, 17, .82); --line: rgba(232, 176, 74, .35);
+    --gold: #e8b04a; --text: #f1e7d6; --muted: #a99c87; --hp: #d9483b; --xp: #8a6ce0;
+    --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; image-rendering: pixelated; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; backdrop-filter: blur(4px); }
+  .hidden { display: none !important; }
+
+  /* Login */
+  #login { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;
+    background: radial-gradient(80% 60% at 50% 30%, #2a2118 0%, #0d0b09 100%); }
+  #login form { width: min(360px, 100%); padding: 28px 24px; text-align: center; }
+  #login h1 { margin: 0 0 4px; font-family: Georgia, "Times New Roman", serif; font-size: 34px; letter-spacing: .06em; color: var(--gold);
+    text-shadow: 0 2px 0 #000, 0 0 24px rgba(232,176,74,.35); }
+  #login .sub { margin: 0 0 22px; color: var(--muted); font-size: 13px; letter-spacing: .2em; text-transform: uppercase; }
+  #login input { width: 100%; padding: 12px 14px; font-size: 16px; border-radius: 6px; border: 1px solid var(--line);
+    background: #0f0d0b; color: var(--text); outline: none; }
+  #login input:focus { border-color: var(--gold); }
+  #login button { margin-top: 12px; width: 100%; padding: 12px; font-size: 16px; font-weight: 700; letter-spacing: .08em;
+    border: 0; border-radius: 6px; cursor: pointer; color: #1a1208; background: linear-gradient(#f3c66a, #c98f2c); }
+  #login button:disabled { opacity: .6; cursor: wait; }
+  #status { min-height: 20px; margin: 12px 0 0; font-size: 13px; color: #ff9d8a; }
+  #login .help { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.6; text-align: left; }
+  kbd { font: 11px ui-monospace, monospace; padding: 1px 5px; border: 1px solid #5a4d3a; border-bottom-width: 2px; border-radius: 4px; color: var(--text); }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #hud > * { pointer-events: auto; }
+  #me { position: absolute; top: calc(var(--safe-t) + 10px); left: 10px; width: 230px; padding: 10px 12px; }
+  #me .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
+  #me .name { font-weight: 700; font-size: 15px; }
+  #me .lvl { color: var(--gold); font-weight: 700; }
+  .bar { position: relative; height: 14px; margin-top: 6px; border-radius: 3px; background: #000; overflow: hidden; border: 1px solid #000; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; width: 0; transition: width .15s; }
+  .bar > span { position: absolute; inset: 0; font: 600 10px/14px ui-monospace, monospace; text-align: center; text-shadow: 0 1px 1px #000; }
+  #hpbar > i { background: linear-gradient(#ef6a5c, var(--hp)); }
+  #xpbar { height: 8px; } #xpbar > i { background: linear-gradient(#a98cff, var(--xp)); } #xpbar > span { font-size: 8px; line-height: 8px; }
+  #me .meta { margin-top: 6px; font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
+  #me .meta b { color: var(--gold); font-weight: 600; }
+
+  #target { position: absolute; top: calc(var(--safe-t) + 10px); left: 50%; transform: translateX(-50%); width: 220px; padding: 8px 12px; text-align: center; font-size: 13px; }
+  #target .name { font-weight: 700; color: #ffb0a0; }
+  #target .bar > i { background: linear-gradient(#e8c060, #c08a20); }
+
+  #mapbox { position: absolute; top: calc(var(--safe-t) + 10px); right: 10px; padding: 6px; }
+  #minimap { display: block; width: 150px; height: 150px; border-radius: 4px; }
+  #mapbox .info { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); padding: 4px 2px 0; }
+  #mode.online { color: #7fe08a; } #mode.offline { color: #f0b860; }
+
+  #chat { position: absolute; left: 10px; bottom: calc(var(--safe-b) + 10px); width: min(380px, calc(100vw - 20px)); padding: 6px; }
+  #log { height: 150px; overflow-y: auto; font-size: 13px; line-height: 1.35; padding: 2px 4px; overscroll-behavior: contain; }
+  #log div { word-wrap: break-word; }
+  #log .sys { color: #e8c77a; } #log .who { color: #8fd0ff; font-weight: 600; } #log .bot .who { color: #c9b8ff; }
+  #log .bad { color: #ff8a7a; } #log .good { color: #9be89b; }
+  #chatform { display: flex; gap: 6px; margin-top: 4px; }
+  #chatin { flex: 1; min-width: 0; padding: 7px 9px; font-size: 14px; border-radius: 5px; border: 1px solid var(--line); background: #0f0d0b; color: var(--text); outline: none; }
+  #chatin:focus { border-color: var(--gold); }
+
+  #abilities { position: absolute; right: 12px; bottom: calc(var(--safe-b) + 12px); display: flex; gap: 10px; }
+  .ab { position: relative; width: 64px; height: 64px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel);
+    color: var(--text); font-size: 26px; cursor: pointer; overflow: hidden; touch-action: manipulation; }
+  .ab small { position: absolute; left: 0; right: 0; bottom: 3px; font-size: 10px; color: var(--muted); }
+  .ab kbd { position: absolute; top: 3px; left: 4px; font-size: 9px; padding: 0 3px; }
+  .ab .cd { position: absolute; inset: auto 0 0 0; height: 0; background: rgba(0,0,0,.65); }
+  .ab:active { transform: scale(.95); }
+
+  #toast { position: fixed; top: 32%; left: 50%; transform: translate(-50%, -50%); z-index: 8; pointer-events: none;
+    font-family: Georgia, serif; font-size: 36px; font-weight: 700; color: var(--gold); text-shadow: 0 3px 0 #000, 0 0 30px rgba(232,176,74,.5);
+    opacity: 0; transition: opacity .4s; text-align: center; }
+  #toast.show { opacity: 1; }
+  #toast small { display: block; font-size: 15px; color: var(--text); font-family: system-ui, sans-serif; font-weight: 500; }
+
+  #stick { position: fixed; z-index: 6; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25); background: rgba(0,0,0,.2); pointer-events: none; }
+  #stick i { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(232,176,74,.55); }
+
+  #disconnected { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(0,0,0,.7); }
+  #disconnected .panel { padding: 24px; text-align: center; }
+  #disconnected button { margin-top: 12px; padding: 10px 18px; border: 0; border-radius: 6px; font-weight: 700; background: var(--gold); color: #1a1208; cursor: pointer; }
+
+  @media (max-width: 640px) {
+    #me { width: 170px; padding: 8px 10px; } #me .name { font-size: 13px; }
+    #minimap { width: 96px; height: 96px; }
+    #target { top: auto; bottom: calc(var(--safe-b) + 92px); width: 180px; }
+    #chat { width: calc(100vw - 180px); } #log { height: 90px; font-size: 12px; }
+    .ab { width: 58px; height: 58px; }
+    #abilities { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="login">
+  <form class="panel" id="loginform" autocomplete="off">
+    <h1>THORNVALE</h1>
+    <p class="sub">Online</p>
+    <input id="name" maxlength="16" placeholder="Choose a name" autofocus />
+    <button id="play" type="submit">Enter the world</button>
+    <p id="status" role="status"></p>
+    <div class="help">
+      <kbd>WASD</kbd>/<kbd>↑↓←→</kbd> move · click ground to walk<br />
+      Click a monster to attack · <kbd>Tab</kbd> nearest target<br />
+      <kbd>1</kbd> Heal · <kbd>2</kbd> Power Strike · <kbd>Enter</kbd> chat<br />
+      On touch: drag anywhere on the left to move, tap to target.
+    </div>
+  </form>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="me" class="panel">
+    <div class="row"><span class="name" id="myname"></span><span class="lvl" id="mylvl"></span></div>
+    <div class="bar" id="hpbar"><i></i><span></span></div>
+    <div class="bar" id="xpbar"><i></i><span></span></div>
+    <div class="meta"><span>Gold <b id="gold">0</b></span><span>Kills <b id="kills">0</b></span></div>
+  </div>
+  <div id="target" class="panel hidden">
+    <div class="name" id="tname"></div>
+    <div class="bar" id="tbar"><i></i><span></span></div>
+  </div>
+  <div id="mapbox" class="panel">
+    <canvas id="minimap"></canvas>
+    <div class="info"><span id="mode"></span><span id="online"></span></div>
+  </div>
+  <div id="chat" class="panel">
+    <div id="log" aria-live="polite"></div>
+    <form id="chatform" autocomplete="off"><input id="chatin" maxlength="140" placeholder="Press Enter to chat" enterkeyhint="send" /></form>
+  </div>
+  <div id="abilities">
+    <button class="ab" id="ab-heal" title="Heal (1)"><kbd>1</kbd>✚<small>Heal</small><div class="cd"></div></button>
+    <button class="ab" id="ab-strike" title="Power Strike (2)"><kbd>2</kbd>⚔<small>Strike</small><div class="cd"></div></button>
+  </div>
+</div>
+
+<div id="stick" class="hidden"><i></i></div>
+<div id="toast"></div>
+<div id="disconnected" class="hidden"><div class="panel">Disconnected from the server.<br /><button onclick="location.reload()">Reconnect</button></div></div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
